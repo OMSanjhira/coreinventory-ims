@@ -3,9 +3,10 @@ from uuid import UUID
 from typing import List
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from models.operations import Receipt, ReceiptItem
+from models.product import Product
 from schemas.operations_schema import ReceiptCreate, ValidateReceiptItem
 from services.stock_service import apply_stock_change
 
@@ -115,7 +116,10 @@ def cancel_receipt(db: Session, receipt_id: UUID) -> Receipt:
 
 def list_receipts(db: Session, status: str = None, warehouse_id: UUID = None,
                   from_date=None, to_date=None):
-    q = db.query(Receipt)
+    q = db.query(Receipt).options(
+        joinedload(Receipt.creator),
+        joinedload(Receipt.items).joinedload(ReceiptItem.product)
+    )
     if status:
         q = q.filter(Receipt.status == status)
     if warehouse_id:
@@ -128,7 +132,10 @@ def list_receipts(db: Session, status: str = None, warehouse_id: UUID = None,
 
 
 def get_receipt(db: Session, receipt_id: UUID) -> Receipt:
-    receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
+    receipt = db.query(Receipt).options(
+        joinedload(Receipt.creator),
+        joinedload(Receipt.items).joinedload(ReceiptItem.product)
+    ).filter(Receipt.id == receipt_id).first()
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     return receipt

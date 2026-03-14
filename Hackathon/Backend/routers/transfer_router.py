@@ -20,12 +20,38 @@ def _transfer_to_dict(t):
         "reference": t.reference,
         "from_location_id": str(t.from_location_id),
         "to_location_id": str(t.to_location_id),
+        "from_location": {
+            "id": str(t.from_location.id),
+            "name": t.from_location.name,
+            "warehouse": {
+                "id": str(t.from_location.warehouse.id),
+                "name": t.from_location.warehouse.name
+            } if t.from_location.warehouse else None
+        } if t.from_location else None,
+        "to_location": {
+            "id": str(t.to_location.id),
+            "name": t.to_location.name,
+            "warehouse": {
+                "id": str(t.to_location.warehouse.id),
+                "name": t.to_location.warehouse.name
+            } if t.to_location.warehouse else None
+        } if t.to_location else None,
         "status": t.status,
         "note": t.note,
         "created_by": str(t.created_by),
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "items": [
-            {"id": str(i.id), "product_id": str(i.product_id), "quantity": i.quantity}
+            {
+                "id": str(i.id), 
+                "product_id": str(i.product_id), 
+                "product": {
+                    "id": str(i.product.id),
+                    "name": i.product.name,
+                    "sku": i.product.sku,
+                    "uom": i.product.uom
+                } if i.product else None,
+                "quantity": i.quantity
+            }
             for i in t.items
         ],
     }

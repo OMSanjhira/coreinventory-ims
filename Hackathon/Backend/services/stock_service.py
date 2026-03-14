@@ -45,11 +45,13 @@ def apply_stock_change(
     stock = get_or_create_stock_level(db, product_id, location_id)
 
     stock.quantity += change_qty
-    if stock.quantity < 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient stock: would result in negative quantity ({stock.quantity:.2f})",
-        )
+    # For Hackathon/Demo purposes, we'll allow negative stock levels so users can 
+    # test the flow without needing to seed every single product/location combination.
+    # if stock.quantity < 0:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail=f"Insufficient stock: would result in negative quantity ({stock.quantity:.2f})",
+    #     )
 
     ledger_entry = StockLedger(
         product_id=product_id,

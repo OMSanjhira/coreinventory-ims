@@ -50,19 +50,33 @@ def list_products(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    q = db.query(Product).filter(Product.is_active == True)
+    from sqlalchemy import func
+    q = db.query(
+        Product,
+        func.sum(StockLevel.quantity).label("total_quantity")
+    ).outerjoin(StockLevel, StockLevel.product_id == Product.id).filter(Product.is_active == True)
+    
     if category_id:
         q = q.filter(Product.category_id == category_id)
     if search:
         q = q.filter(
             (Product.name.ilike(f"%{search}%")) | (Product.sku.ilike(f"%{search}%"))
         )
-    products = q.all()
+    
+    products = q.group_by(Product.id).all()
+    
     return success_response(
         data=[
-            {"id": str(p.id), "name": p.name, "sku": p.sku,
-             "category_id": str(p.category_id), "uom": p.uom,
-             "reorder_level": p.reorder_level, "is_active": p.is_active}
+            {
+                "id": str(p.Product.id), 
+                "name": p.Product.name, 
+                "sku": p.Product.sku,
+                "category_id": str(p.Product.category_id), 
+                "uom": p.Product.uom,
+                "reorder_level": p.Product.reorder_level, 
+                "is_active": p.Product.is_active,
+                "total_quantity": float(p.total_quantity or 0.0)
+            }
             for p in products
         ],
         message="Products retrieved",

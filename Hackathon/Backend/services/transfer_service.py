@@ -2,9 +2,10 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from models.operations import InternalTransfer, TransferItem
+from models.warehouse import Location
 from schemas.operations_schema import TransferCreate
 from services.stock_service import apply_stock_change
 
@@ -111,18 +112,22 @@ def cancel_transfer(db: Session, transfer_id: UUID) -> InternalTransfer:
     transfer.status = "canceled"
     db.commit()
     db.refresh(transfer)
-    return transfer
-
-
 def list_transfers(db: Session, status: str = None):
-    q = db.query(InternalTransfer)
+    q = db.query(InternalTransfer).options(
+        joinedload(InternalTransfer.from_location).joinedload(Location.warehouse),
+        joinedload(InternalTransfer.to_location).joinedload(Location.warehouse)
+    )
     if status:
         q = q.filter(InternalTransfer.status == status)
     return q.order_by(InternalTransfer.created_at.desc()).all()
 
 
 def get_transfer(db: Session, transfer_id: UUID) -> InternalTransfer:
-    transfer = db.query(InternalTransfer).filter(InternalTransfer.id == transfer_id).first()
+    transfer = db.query(InternalTransfer).options(
+        joinedload(InternalTransfer.from_location).joinedload(Location.warehouse),
+        joinedload(InternalTransfer.to_location).joinedload(Location.warehouse),
+        joinedload(InternalTransfer.items).joinedload(TransferItem.product)
+    ).filter(InternalTransfer.id == transfer_id).first()
     if not transfer:
         raise HTTPException(status_code=404, detail="Transfer not found")
     return transfer

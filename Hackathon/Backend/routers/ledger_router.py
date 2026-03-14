@@ -3,11 +3,13 @@ from typing import Optional
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from database.connection import get_db
 from models.user import User
 from models.stock import StockLedger
+from models.product import Product
+from models.warehouse import Location
 from services.auth_deps import get_current_user
 from utils.response_wrapper import success_response
 
@@ -22,11 +24,17 @@ def list_ledger(
     from_date: Optional[date] = Query(None),
     to_date: Optional[date] = Query(None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
+    per_page: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    q = db.query(StockLedger)
+    from sqlalchemy import func
+
+    q = db.query(StockLedger).options(
+        joinedload(StockLedger.product),
+        joinedload(StockLedger.location).joinedload(Location.warehouse),
+        joinedload(StockLedger.creator)
+    )
 
     if product_id:
         q = q.filter(StockLedger.product_id == product_id)
@@ -42,23 +50,53 @@ def list_ledger(
     total = q.count()
     entries = q.order_by(StockLedger.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
 
+    def _op_to_move_type(op: str) -> str:
+        if op in ("receipt", "transfer_in", "adjustment_in"):
+            return "in"
+        if op in ("delivery", "transfer_out", "adjustment_out"):
+            return "out"
+        if "transfer" in op:
+            return "transfer"
+        if "adjustment" in op:
+            return "adjustment"
+        return op
+
     return success_response(
         data={
             "total": total,
             "page": page,
             "per_page": per_page,
             "pages": (total + per_page - 1) // per_page,
-            "entries": [
+            "items": [
                 {
                     "id": str(e.id),
                     "product_id": str(e.product_id),
+                    "product": {
+                        "id": str(e.product.id),
+                        "name": e.product.name,
+                        "sku": e.product.sku
+                    } if e.product else None,
                     "location_id": str(e.location_id),
+                    "location": {
+                        "id": str(e.location.id),
+                        "name": e.location.name,
+                        "warehouse": {
+                            "id": str(e.location.warehouse.id),
+                            "name": e.location.warehouse.name
+                        } if e.location.warehouse else None
+                    } if e.location else None,
                     "change_qty": e.change_qty,
+                    "quantity": abs(e.change_qty),
+                    "move_type": _op_to_move_type(e.operation_type),
                     "operation_type": e.operation_type,
                     "reference_id": str(e.reference_id),
                     "reference_type": e.reference_type,
                     "note": e.note,
                     "created_by": str(e.created_by),
+                    "done_by": {
+                        "id": str(e.creator.id),
+                        "name": e.creator.name
+                    } if e.creator else None,
                     "created_at": e.created_at.isoformat() if e.created_at else None,
                 }
                 for e in entries

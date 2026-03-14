@@ -24,12 +24,14 @@ def _receipt_to_dict(r):
         "status": r.status,
         "note": r.note,
         "created_by": str(r.created_by),
+        "creator": {"id": str(r.creator.id), "name": r.creator.name} if r.creator else None,
         "created_at": r.created_at.isoformat() if r.created_at else None,
         "validated_at": r.validated_at.isoformat() if r.validated_at else None,
         "items": [
             {
                 "id": str(i.id),
                 "product_id": str(i.product_id),
+                "product": {"id": str(i.product.id), "name": i.product.name, "sku": i.product.sku, "uom": i.product.uom} if i.product else None,
                 "location_id": str(i.location_id),
                 "expected_qty": i.expected_qty,
                 "received_qty": i.received_qty,
