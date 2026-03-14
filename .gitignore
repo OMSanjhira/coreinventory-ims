@@ -94,7 +94,7 @@ venv.bak/
 /Hackathon/Backend/.env
 /Hackathon/Backend/__pycache__/
 /Hackathon/Backend/**/*.pyc
-/Hackathon/frontend/
+
 
 # IDEs
 .vscode/
